@@ -1,5 +1,0 @@
-{
-  "name": "DevOps RAG Agent",
-  "description": "A React-based Retrieval-Augmented Generation (RAG) agent for DevOps troubleshooting. Features client-side document chunking, simulated vector retrieval, and Gemini-powered log analysis and solution generation.",
-  "requestFramePermissions": []
-}

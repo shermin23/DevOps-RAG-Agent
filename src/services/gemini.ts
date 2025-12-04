@@ -1,22 +1,37 @@
 import { GoogleGenAI } from "@google/genai";
-import { DocumentChunk } from "../types";
+import type { DocumentChunk } from "../types";
 
+/**
+ * Initialize the Google GenAI Client.
+ * Handles environment variable detection for both standard Node.js (production/preview)
+ * and Vite (local development) environments.
+ */
 const getAIClient = () => {
-    // Note: In a real production app, never expose keys on client.
-    // This is for the requested demo architecture running in browser.
-    if (!process.env.API_KEY) {
-        throw new Error("API Key not found in environment");
+    // Support both Node.js process.env (for cloud/preview) and Vite import.meta.env (for local)
+    // @ts-ignore - Handle potentially undefined process/import.meta in different envs
+    const apiKey = (typeof process !== 'undefined' ? process.env.API_KEY : undefined) || 
+                   (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_API_KEY : undefined);
+
+    if (!apiKey) {
+        throw new Error("API Key not found in environment. For local dev, set VITE_API_KEY in .env");
     }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return new GoogleGenAI({ apiKey });
 }
 
 /**
- * Phase 2 - Step 5: Two-Stage Query Modification
- * Uses LLM to clean messy logs into a search query.
+ * Phase 2 - Step 5: Two-Stage Query Modification.
+ * 
+ * WHY THIS MATTERS:
+ * Raw error logs contain noise (dates, IPs, stack trace hashes) that confuse retrieval systems.
+ * We use an LLM first to "clean" the log into a semantic search query.
+ * 
+ * Example:
+ * Input: "[2023-10-10 10:00:00] Error: Connection refused at 192.168.1.1 port 8080"
+ * Output: "Connection refused port 8080"
  */
 export const cleanLogToQuery = async (rawLog: string): Promise<string> => {
   const ai = getAIClient();
-  const model = "gemini-2.5-flash"; // Fast model for tool use
+  const model = "gemini-2.5-flash"; // Flash is faster and cheaper for simple tasks
 
   const prompt = `
     You are a DevOps expert assistant. 
@@ -43,8 +58,11 @@ export const cleanLogToQuery = async (rawLog: string): Promise<string> => {
 };
 
 /**
- * Phase 2 - Step 8: Final Generation
- * Uses the retrieved context to solve the problem.
+ * Phase 2 - Step 8: Final Generation.
+ * 
+ * This is the "Generation" part of RAG.
+ * It takes the retrieved context and the query, then instructs the LLM
+ * to answer based ONLY on that context.
  */
 export const generateRAGSolution = async (
   query: string, 
@@ -53,9 +71,10 @@ export const generateRAGSolution = async (
   const ai = getAIClient();
   const model = "gemini-2.5-flash"; // Capable model for reasoning
 
-  // Context preparation
-  const contextText = chunks.map((c, i) => `[Source ID: ${c.sourceId}]: ${c.content}`).join("\n\n");
+  // Format retrieved chunks into a context block for the LLM
+  const contextText = chunks.map((c) => `[Source ID: ${c.sourceId}]: ${c.content}`).join("\n\n");
 
+  // System Prompt: Defines role, constraints (Strict Grounding), and output format
   const prompt = `
     You are a SENIOR DEVOPS ENGINEER.
     

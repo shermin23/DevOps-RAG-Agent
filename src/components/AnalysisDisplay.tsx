@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
-import { RAGResult, AnalysisStep } from '../types';
+import type { RAGResult, AnalysisStep } from '../types';
 import { CheckCircle2, Circle, Loader2, Search, BookOpen, AlertTriangle } from 'lucide-react';
 
 interface AnalysisDisplayProps {
@@ -8,18 +8,27 @@ interface AnalysisDisplayProps {
   result: RAGResult | null;
 }
 
+/**
+ * Visualizes the output of the RAG pipeline.
+ * Displays progress steps (Ingest -> Query -> Search -> Gen)
+ * and renders the final markdown solution with citations.
+ */
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ steps, result }) => {
   return (
     <div className="flex flex-col gap-6 h-full">
-      {/* Pipeline Steps Visualization */}
+      {/* 
+        Pipeline Steps Visualization 
+        Shows a stepper UI to indicate what part of the RAG process is happening.
+      */}
       <div className="bg-slate-900 rounded-lg p-4 border border-slate-800 shadow-sm">
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Pipeline Execution</h3>
         <div className="flex items-center justify-between relative">
-          {/* Progress Bar Background */}
+          {/* Progress Bar Background Line */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-slate-800 -z-10" />
           
-          {steps.map((step, idx) => (
+          {steps.map((step, _idx) => (
             <div key={step.id} className="flex flex-col items-center gap-2 bg-slate-900 px-2 z-10">
+              {/* Step Icon Indicator */}
               <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500
                 ${step.status === 'complete' ? 'bg-emerald-950 border-emerald-500 text-emerald-500' : 
                   step.status === 'loading' ? 'bg-blue-950 border-blue-500 text-blue-500' : 
@@ -31,6 +40,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ steps, result }) => {
                  step.status === 'error' ? <AlertTriangle size={16} /> :
                  <Circle size={16} />}
               </div>
+              {/* Step Label */}
               <span className={`text-[10px] uppercase font-bold tracking-tight ${
                  step.status === 'complete' ? 'text-emerald-500' : 
                  step.status === 'loading' ? 'text-blue-500' : 
@@ -46,6 +56,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ steps, result }) => {
       {/* Main Result Area */}
       {result ? (
         <div className="flex-1 bg-slate-900 rounded-lg border border-slate-800 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 shadow-sm">
+          {/* Section: Refined Query Display */}
           <div className="p-4 border-b border-slate-800 bg-slate-950/30">
              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                 <Search size={12} />
@@ -56,7 +67,9 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ steps, result }) => {
              </div>
           </div>
 
+          {/* Section: Solution & Citations */}
           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            {/* Markdown Rendered Solution */}
             <div className="prose prose-invert prose-sm prose-emerald max-w-none">
                 <h3 className="text-white flex items-center gap-2 font-semibold">
                     Solution
@@ -93,6 +106,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ steps, result }) => {
           </div>
         </div>
       ) : (
+        /* Empty State Placeholder */
         <div className="flex-1 flex flex-col items-center justify-center text-slate-600 bg-slate-900 rounded-lg border border-slate-800 border-dashed">
             <div className="bg-slate-800/50 p-4 rounded-full mb-4 ring-1 ring-slate-700/50">
                 <Search size={32} className="text-slate-700" />

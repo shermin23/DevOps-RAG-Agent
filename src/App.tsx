@@ -2,20 +2,30 @@ import React, { useState } from 'react';
 import { Terminal, Play, AlertCircle } from 'lucide-react';
 import DocManager from './components/DocManager';
 import AnalysisDisplay from './components/AnalysisDisplay';
-import { KnowledgeDoc, AnalysisStep, RAGResult } from './types';
+import type { KnowledgeDoc, AnalysisStep, RAGResult } from './types';
 import { cleanLogToQuery, generateRAGSolution } from './services/gemini';
 import { retrieveRelevantChunks } from './utils/search';
 
 const INITIAL_DOCS: KnowledgeDoc[] = []; // Start empty or add seed data if needed
 
+/**
+ * Main Application Component.
+ * Orchestrates the RAG flow:
+ * 1. User inputs raw log
+ * 2. Log is cleaned via Gemini API (Step 2)
+ * 3. Relevant docs are retrieved from local state via Search Utils (Step 3)
+ * 4. Final solution generated via Gemini API (Step 4)
+ */
 const App: React.FC = () => {
-  const [docs, setDocs] = useState<KnowledgeDoc[]>(INITIAL_DOCS);
-  const [rawLog, setRawLog] = useState('');
+  // --- State Management ---
+  const [docs, setDocs] = useState<KnowledgeDoc[]>(INITIAL_DOCS); // The Knowledge Base
+  const [rawLog, setRawLog] = useState(''); // User Input
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const [result, setResult] = useState<RAGResult | null>(null);
   
+  // Pipeline Step State for Visualization
   const [steps, setSteps] = useState<AnalysisStep[]>([
     { id: '1', label: 'Ingest Log', status: 'pending' },
     { id: '2', label: 'Refine Query', status: 'pending' },
@@ -23,16 +33,25 @@ const App: React.FC = () => {
     { id: '4', label: 'Generate', status: 'pending' },
   ]);
 
+  // Helper to update specific step status
   const updateStep = (id: string, status: AnalysisStep['status']) => {
     setSteps(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   };
 
+  /**
+   * Core RAG Execution Logic
+   */
   const handleRunAnalysis = async () => {
     if (!rawLog.trim()) return;
-    if (!process.env.API_KEY) {
-        setErrorMsg("Missing API Key. Please ensure the environment variable is set.");
-        return;
-    }
+    
+  // Check for API key (Required for Gemini)
+  // Note: The service also checks, but this provides immediate UI feedback
+  const apiKey = (typeof process !== 'undefined' ? (process as any).env?.API_KEY : undefined)
+    || (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_API_KEY : undefined);
+  if (!apiKey) {
+    setErrorMsg("Missing API Key. Please ensure the environment variable is set.");
+    return;
+  }
 
     setIsProcessing(true);
     setErrorMsg(null);
@@ -42,29 +61,32 @@ const App: React.FC = () => {
     setSteps(prev => prev.map(s => ({ ...s, status: 'pending' })));
 
     try {
-      // Step 1: Ingest
+      // Step 1: Ingest (Simulated delay for UX)
       updateStep('1', 'loading');
-      await new Promise(r => setTimeout(r, 600)); // Visual delay
+      await new Promise(r => setTimeout(r, 600)); 
       updateStep('1', 'complete');
 
-      // Step 2: Clean Query
+      // Step 2: Clean Query (LLM Call 1)
+      // Transforms "Error at 10:00 ip 1.1.1.1: connection failed" -> "connection failed"
       updateStep('2', 'loading');
       const searchQuery = await cleanLogToQuery(rawLog);
       updateStep('2', 'complete');
 
-      // Step 3: Retrieval
+      // Step 3: Retrieval (Local Algorithm)
+      // Searches the 'docs' state for matching chunks
       updateStep('3', 'loading');
-      // Flatten all chunks from all docs
-      const allChunks = docs.flatMap(d => d.chunks);
-      const retrievedChunks = retrieveRelevantChunks(searchQuery, allChunks, 3);
+      const allChunks = docs.flatMap(d => d.chunks); // Flatten all chunks from all docs
+      const retrievedChunks = retrieveRelevantChunks(searchQuery, allChunks, 3); // Get top 3
       await new Promise(r => setTimeout(r, 600)); // Visual delay
       updateStep('3', 'complete');
 
-      // Step 4: Generation
+      // Step 4: Generation (LLM Call 2)
+      // Generates solution using retrieved context
       updateStep('4', 'loading');
       const solution = await generateRAGSolution(searchQuery, retrievedChunks);
       updateStep('4', 'complete');
 
+      // Finalize Result
       setResult({
         originalLog: rawLog,
         searchQuery,
@@ -76,6 +98,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "An unexpected error occurred.");
+      // Mark current step as error
       const currentStepIdx = steps.findIndex(s => s.status === 'loading');
       if (currentStepIdx !== -1) {
           updateStep(steps[currentStepIdx].id, 'error');
@@ -101,15 +124,15 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content Layout */}
       <main className="flex-1 p-6 grid grid-cols-12 gap-6 max-h-[calc(100vh-4rem)]">
         
-        {/* Left Col: Docs (3 cols) */}
+        {/* Left Column: Document Management (Knowledge Base) */}
         <div className="col-span-12 lg:col-span-3 h-[calc(100vh-7rem)]">
            <DocManager docs={docs} setDocs={setDocs} />
         </div>
 
-        {/* Middle Col: Input (4 cols) */}
+        {/* Middle Column: Input & Controls */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-4 h-[calc(100vh-7rem)]">
            <div className="bg-slate-900 rounded-lg border border-slate-800 flex flex-col flex-1 p-4 shadow-sm">
               <label className="text-sm font-semibold text-slate-400 mb-2 block">
@@ -144,7 +167,7 @@ const App: React.FC = () => {
               </div>
            </div>
 
-           {/* Quick Tip */}
+           {/* Info Card */}
            <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg">
              <h4 className="text-blue-400 text-xs font-bold uppercase mb-1 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
@@ -157,7 +180,7 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Right Col: Output (5 cols) */}
+        {/* Right Column: Output Visualization */}
         <div className="col-span-12 lg:col-span-5 h-[calc(100vh-7rem)]">
            <AnalysisDisplay steps={steps} result={result} />
         </div>

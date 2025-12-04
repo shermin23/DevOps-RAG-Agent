@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KnowledgeDoc, DocumentChunk } from '../types';
+import type { KnowledgeDoc } from '../types';
 import { createChunksFromDoc } from '../utils/textProcessor';
 import { Plus, FileText, Trash2, Database } from 'lucide-react';
 
@@ -8,15 +8,21 @@ interface DocManagerProps {
   setDocs: React.Dispatch<React.SetStateAction<KnowledgeDoc[]>>;
 }
 
+/**
+ * Component to manage the "Knowledge Base" (the R in RAG).
+ * Allows users to paste text, which is then chunked and stored in state.
+ */
 const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
 
+  // Handles the "Ingestion" phase: Text -> Chunks -> Store
   const handleAddDoc = () => {
     if (!newTitle || !newContent) return;
 
     const docId = `doc-${Date.now()}`;
+    // Process text into chunks immediately upon addition
     const chunks = createChunksFromDoc(docId, newContent);
 
     const newDoc: KnowledgeDoc = {
@@ -39,6 +45,7 @@ const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
 
   return (
     <div className="bg-slate-900 rounded-lg border border-slate-800 h-full flex flex-col shadow-sm">
+      {/* Header Section */}
       <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/30 rounded-t-lg">
         <h2 className="text-lg font-semibold text-emerald-400 flex items-center gap-2">
           <Database size={18} />
@@ -47,12 +54,15 @@ const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
         <button
           onClick={() => setIsAdding(!isAdding)}
           className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+          title="Add New Document"
         >
           <Plus size={20} />
         </button>
       </div>
 
+      {/* Content List Section */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Add Document Form */}
         {isAdding && (
           <div className="bg-slate-800/50 p-3 rounded-md border border-slate-700/50 mb-4 animate-in fade-in slide-in-from-top-2">
             <input
@@ -85,6 +95,7 @@ const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
           </div>
         )}
 
+        {/* Empty State */}
         {docs.length === 0 && !isAdding && (
           <div className="text-center text-slate-600 py-10">
             <p className="text-sm">No documents indexed.</p>
@@ -92,6 +103,7 @@ const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
           </div>
         )}
 
+        {/* Document List Items */}
         {docs.map(doc => (
           <div key={doc.id} className="group bg-slate-800/40 border border-slate-700/50 rounded-md p-3 hover:bg-slate-800 hover:border-slate-600 transition-all">
             <div className="flex justify-between items-start">
@@ -109,6 +121,7 @@ const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
               <button 
                 onClick={() => deleteDoc(doc.id)}
                 className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                title="Remove Document"
               >
                 <Trash2 size={16} />
               </button>
@@ -117,6 +130,7 @@ const DocManager: React.FC<DocManagerProps> = ({ docs, setDocs }) => {
         ))}
       </div>
       
+      {/* Footer Stats */}
       <div className="p-3 bg-slate-950/30 border-t border-slate-800 text-center rounded-b-lg">
         <p className="text-xs text-slate-500 font-mono">
           Total Chunks: {docs.reduce((acc, doc) => acc + doc.chunks.length, 0)}
